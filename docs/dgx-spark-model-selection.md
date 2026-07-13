@@ -16,31 +16,44 @@ Do not choose from parameter count alone. On Spark, a sparse MoE can be both lar
 
 These are **community measurements, not controlled cross-model benchmarks**. `c=1` means single-stream. Model quality is not inferred from tok/s.
 
-| Model / artifact | One-Spark fit | LocalMaxxing single-stream evidence | Context | Community signal | Verdict |
-|---|---:|---:|---:|---|---|
-| [Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B) NVFP4 + MTP | Yes | **32.8 tok/s** reported with vLLM NVFP4 | Run-specific | Dense model; preferred here for capability consistency rather than maximum tok/s | **Default** |
-| [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B) + NVFP4/DFlash | Yes | **102.05 tok/s** median; 42.98 tok/s autoregressive baseline | 262K | Strong adoption, but sparse A3B activation is a quality/capability tradeoff—not a free speedup | **Throughput alternative** |
-| [Qwen3.5-35B-A3B GGUF](https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF) Q4_K_XL | Yes | **60.3 tok/s** | 262K | Positive for agentic/context use, but mixed on quant/sampler reliability; 858 likes / 172K downloads | **Easy llama.cpp path** |
-| [MiniMax-M2.7](https://huggingface.co/MiniMaxAI/MiniMax-M2.7) via [GGUF](https://huggingface.co/unsloth/MiniMax-M2.7) UD-IQ4_XS | Tight: 101 GB weights | **30.88 tok/s** median over 38 warm trials | 108K tested | Positive: HF post calls interactive coding “excellent,” focused, and better at following prompts than tested GLM/Qwen alternatives; 1,229 likes / 1.06M downloads on base model | **Capability experiment** |
-| [Step-3.7-Flash GGUF](https://huggingface.co/stepfun-ai/Step-3.7-Flash-GGUF) UD-IQ4_NL | Yes | **23.0 tok/s** | 2K measured; 262K configured elsewhere | Mixed/negative operationally: practical-tips thread reports infinite reasoning loops from a llama.cpp parser bug and a separate >100K hallucination report | **Experimental** |
-| [Qwen3.5-122B-A10B](https://huggingface.co/Qwen/Qwen3.5-122B-A10B) INT4 AutoRound | Yes, tight | **28.1 tok/s**; incomplete public recipe | 262K claimed | Healthy adoption (583 likes / 628K downloads), but users are already requesting a Qwen3.6 successor | **Only if 122B quality wins your eval** |
-| [Nemotron-3-Super-120B-A12B NVFP4](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4) | Context-dependent | No sufficiently reproducible one-Spark row selected | 200K–240K problematic in report | Negative Spark-specific signal: open OOM/system-stall report; separate report says 16 tok/s | **Skip initially** |
-| [DeepSeek-V4-Flash hybrid 2-bit](https://huggingface.co/bleysg/DeepSeek-V4-Flash-IQ2XXS-Q2K-FP8-120GB-target) | Barely: ~110 GiB resident | **<2 tok/s** on one Spark | 16K default in bring-up | Coherent output demonstrated, but custom/community vLLM patches, long autotune, crashes and KV-accounting bugs were reported | **Proof-of-life only** |
-| [MiniMax-M3 GGUF](https://huggingface.co/unsloth/MiniMax-M3-GGUF) UD-IQ1_M | No stable fit | No selected one-Spark run | KV/context excluded from 128 GB file | Experimental, text-only, no MiniMax Sparse Attention; Unsloth states ≥133 GB required | **Does not fit one 128 GB Spark** |
+| Model / artifact | One-Spark fit | LocalMaxxing single-stream evidence | AA Index v4.1 | Context | Community signal | Verdict |
+|---|---:|---:|---:|---:|---|---|
+| [Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B) NVFP4 + MTP | Yes | **32.8 tok/s** reported with vLLM NVFP4 | **37.1 reasoning / 30 non-reasoning** | Run-specific | Dense model; preferred here for capability consistency rather than maximum tok/s | **Default** |
+| [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B) + NVFP4/DFlash | Yes | **102.05 tok/s** median; 42.98 tok/s autoregressive baseline | **32 reasoning** | 262K | Strong adoption, but sparse A3B activation is a quality/capability tradeoff—not a free speedup | **Throughput alternative** |
+| [Qwen3.5-35B-A3B GGUF](https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF) Q4_K_XL | Yes | **60.3 tok/s** | — | 262K | Positive for agentic/context use, but mixed on quant/sampler reliability; 858 likes / 172K downloads | **Easy llama.cpp path** |
+| [MiniMax-M2.7](https://huggingface.co/MiniMaxAI/MiniMax-M2.7) via [GGUF](https://huggingface.co/unsloth/MiniMax-M2.7) UD-IQ4_XS | Tight: 101 GB weights | **30.88 tok/s** median over 38 warm trials | **38** | 108K tested | Positive: HF post calls interactive coding “excellent,” focused, and better at following prompts than tested GLM/Qwen alternatives; 1,229 likes / 1.06M downloads on base model | **Capability experiment** |
+| [Step-3.7-Flash GGUF](https://huggingface.co/stepfun-ai/Step-3.7-Flash-GGUF) UD-IQ4_NL | Yes | **23.0 tok/s** | **30** | 2K measured; 262K configured elsewhere | Mixed/negative operationally: practical-tips thread reports infinite reasoning loops from a llama.cpp parser bug and a separate >100K hallucination report | **Experimental** |
+| [Qwen3.5-122B-A10B](https://huggingface.co/Qwen/Qwen3.5-122B-A10B) INT4 AutoRound | Yes, tight | **28.1 tok/s**; incomplete public recipe | **32 reasoning / 28 non-reasoning** | 262K claimed | Healthy adoption (583 likes / 628K downloads), but users are already requesting a Qwen3.6 successor | **Only if 122B quality wins your eval** |
+| [Nemotron-3-Super-120B-A12B NVFP4](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4) | Context-dependent | No sufficiently reproducible one-Spark row selected | — | 200K–240K problematic in report | Negative Spark-specific signal: open OOM/system-stall report; separate report says 16 tok/s | **Skip initially** |
+| [DeepSeek-V4-Flash hybrid 2-bit](https://huggingface.co/bleysg/DeepSeek-V4-Flash-IQ2XXS-Q2K-FP8-120GB-target) | Barely: ~110 GiB resident | **<2 tok/s** on one Spark | **40 max / 37 high / 29 non-reasoning** | 16K default in bring-up | Coherent output demonstrated, but custom/community vLLM patches, long autotune, crashes and KV-accounting bugs were reported | **Proof-of-life only** |
+| [MiniMax-M3 GGUF](https://huggingface.co/unsloth/MiniMax-M3-GGUF) UD-IQ1_M | No stable fit | No selected one-Spark run | **44.4** for full hosted model; not representative of IQ1 | KV/context excluded from 128 GB file | Experimental, text-only, no MiniMax Sparse Attention; Unsloth states ≥133 GB required | **Does not fit one 128 GB Spark** |
 
-HF likes/downloads are popularity signals, not quality scores. Discussion sentiment is anecdotal and is reported as such.
+HF likes/downloads are popularity signals, not quality scores. Discussion sentiment is anecdotal and is reported as such. Artificial Analysis scores are the current **Intelligence Index v4.1** results for the named hosted/base model at the stated reasoning effort. They are independent quality signals, but **not measurements of the Spark quant**; IQ1/IQ2/NVFP4 quality can differ materially.
+
+## Which model to use for what
+
+- **One model for coding, tools, screenshots and documents:** Qwen3.6-27B NVFP4 + MTP.
+- **Fastest interactive image/video assistant:** Gemma-4-26B-A4B NVFP4.
+- **Maximum text capability that remains practical on one Spark:** MiniMax-M2.7 IQ4, if 101 GB weights and llama.cpp are acceptable.
+- **Maximum throughput for text/image/video:** Qwen3.6-35B-A3B NVFP4 + DFlash; validate quality and DFlash acceptance first.
+- **Audio, transcription, meetings and timestamped ASR:** Nemotron-3-Nano-Omni NVFP4.
+- **Dense multilingual Google model:** Gemma-4-31B NVFP4, only if ~7 tok/s is acceptable.
+- **Small always-available omni endpoint:** Gemma-4-12B NVFP4A16.
+- **Simple GGUF/llama.cpp deployment:** Qwen3.5-35B-A3B Q4_K_XL.
+- **Research/proof-of-life only:** DeepSeek-V4-Flash one-Spark hybrid and Step-3.7-Flash.
+- **Do not use on one Spark:** MiniMax-M3.
 
 ## Vision and omni models
 
 The default shortlist understated multimodality. **Qwen3.6-27B and Qwen3.6-35B-A3B already contain vision encoders**; they accept images and video unless the server is deliberately launched with `--language-model-only`.
 
-| Model | Inputs | Spark artifact / footprint | Measured Spark decode | Best use | Verdict |
-|---|---|---:|---:|---|---|
-| [Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B) NVFP4 | Text, image, video | NVFP4; ample one-box headroom | **32.8 tok/s** selected comparable run; newer community kernels report higher, workload-dependent figures | Best combined coding, visual reasoning, OCR, GUI and video model | **VLM default** |
-| [Gemma-4-31B-IT NVFP4](https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4) | Text, image, video | Official NVIDIA NVFP4; 30.7B dense | Community benchmark reports **7.0 tok/s**; no controlled VLM row selected | Strong dense multimodal alternative, function calling, 256K, 140+ languages | **Quality alternative; slower** |
-| [Gemma-4-26B-A4B NVFP4](https://huggingface.co/bg-digitalservices/Gemma-4-26B-A4B-it-NVFP4) | Text, image, video | **16.5 GB disk / 15.7 GiB loaded** | **48.2 tok/s** vs 23.3 BF16 | Fast multimodal assistant with enormous context headroom | **Best fast VLM alternative** |
-| [Nemotron-3-Nano-Omni-30B-A3B NVFP4](https://huggingface.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4) | Text, image, video, audio | **21 GB**, officially supports one Spark | No controlled Spark decode result found | OCR, GUI agents, ASR with timestamps, meeting/video analysis; 256K | **Best audio/document specialist** |
-| [Gemma-4-12B-it NVFP4A16](https://huggingface.co/coolthor/gemma-4-12B-it-NVFP4A16) | Text, image, audio, video | **7.7 GB** | **24.9 tok/s** | Small omni deployment or maximum memory headroom | **Efficient, lower-capability** |
+| Model | Inputs | Spark artifact / footprint | Spark decode | AA Index v4.1 | Use it for | Do not choose it for |
+|---|---|---:|---:|---:|---|---|
+| [Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B) NVFP4 | Text, image, video | NVFP4; ample one-box headroom | **32.8 tok/s** selected comparable run | **37.1 reasoning / 30 non-reasoning** | Coding agents, screenshots, diagrams, OCR, GUI and video reasoning | Maximum decode speed or native audio |
+| [Gemma-4-31B-IT NVFP4](https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4) | Text, image, video | Official NVIDIA NVFP4; 30.7B dense | **7.0 tok/s** community benchmark | **29.4 reasoning / 25 non-reasoning** | Dense Google flagship, multilingual image/video work, function calling | Interactive high-volume use |
+| [Gemma-4-26B-A4B NVFP4](https://huggingface.co/bg-digitalservices/Gemma-4-26B-A4B-it-NVFP4) | Text, image, video | **16.5 GB disk / 15.7 GiB loaded** | **48.2 tok/s** vs 23.3 BF16 | **25.7 reasoning** | Fast image/video chat, long context and concurrent serving | Maximum reasoning quality or zero-patch deployment |
+| [Nemotron-3-Nano-Omni-30B-A3B NVFP4](https://huggingface.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4) | Text, image, video, audio | **21 GB**, officially supports one Spark | No controlled Spark result found | **14.9 reasoning** | ASR with timestamps, meetings, document OCR and GUI agents | General coding/reasoning when audio is unnecessary; non-English work |
+| [Gemma-4-12B-it NVFP4A16](https://huggingface.co/coolthor/gemma-4-12B-it-NVFP4A16) | Text, image, audio, video | **7.7 GB** | **24.9 tok/s** | **22 reasoning / 13 non-reasoning** | Small omni service, edge prototype or maximum memory headroom | Hard coding/reasoning or multilingual work under aggressive NVFP4 |
 
 ### VLM recommendation order
 
