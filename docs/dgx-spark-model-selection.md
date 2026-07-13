@@ -4,7 +4,7 @@
 
 ## Short answer
 
-1. **Best default: Qwen3.6-27B NVFP4 + MTP.** Prefer the dense 27B when consistent per-token capacity matters more than the 35B-A3B MoE's headline throughput. A Spark vLLM run reports 32.8 tok/s; see the [dedicated guide](dgx-spark-qwen36-27b.md).
+1. **Best default and best vision-language choice: Qwen3.6-27B NVFP4 + MTP.** This is already a native image/video model—not text-only. Prefer the dense 27B when consistent per-token capacity matters more than the 35B-A3B MoE's headline throughput. A Spark vLLM run reports 32.8 tok/s; see the [dedicated guide](dgx-spark-qwen36-27b.md).
 2. **Fast alternative: Qwen3.6-35B-A3B NVFP4.** Use it when throughput is the priority; its 42.98 tok/s autoregressive baseline and 102.05 tok/s DFlash result are not evidence that it is the better model for your workload.
 3. **Best capability-per-box experiment: MiniMax-M2.7 IQ4.** A 229B/10B-active-class model fits as a 101 GB GGUF and reached 30.88 tok/s at 108K with n-gram speculation.
 4. **DeepSeek-V4-Flash fits only as an extreme experiment on one Spark.** A hybrid 2-bit checkpoint uses ~110 GiB resident and runs below 2 tok/s. Practical 36–46 tok/s configurations use two Sparks.
@@ -29,6 +29,59 @@ These are **community measurements, not controlled cross-model benchmarks**. `c=
 | [MiniMax-M3 GGUF](https://huggingface.co/unsloth/MiniMax-M3-GGUF) UD-IQ1_M | No stable fit | No selected one-Spark run | KV/context excluded from 128 GB file | Experimental, text-only, no MiniMax Sparse Attention; Unsloth states ≥133 GB required | **Does not fit one 128 GB Spark** |
 
 HF likes/downloads are popularity signals, not quality scores. Discussion sentiment is anecdotal and is reported as such.
+
+## Vision and omni models
+
+The default shortlist understated multimodality. **Qwen3.6-27B and Qwen3.6-35B-A3B already contain vision encoders**; they accept images and video unless the server is deliberately launched with `--language-model-only`.
+
+| Model | Inputs | Spark artifact / footprint | Measured Spark decode | Best use | Verdict |
+|---|---|---:|---:|---|---|
+| [Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B) NVFP4 | Text, image, video | NVFP4; ample one-box headroom | **32.8 tok/s** selected comparable run; newer community kernels report higher, workload-dependent figures | Best combined coding, visual reasoning, OCR, GUI and video model | **VLM default** |
+| [Gemma-4-31B-IT NVFP4](https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4) | Text, image, video | Official NVIDIA NVFP4; 30.7B dense | Community benchmark reports **7.0 tok/s**; no controlled VLM row selected | Strong dense multimodal alternative, function calling, 256K, 140+ languages | **Quality alternative; slower** |
+| [Gemma-4-26B-A4B NVFP4](https://huggingface.co/bg-digitalservices/Gemma-4-26B-A4B-it-NVFP4) | Text, image, video | **16.5 GB disk / 15.7 GiB loaded** | **48.2 tok/s** vs 23.3 BF16 | Fast multimodal assistant with enormous context headroom | **Best fast VLM alternative** |
+| [Nemotron-3-Nano-Omni-30B-A3B NVFP4](https://huggingface.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4) | Text, image, video, audio | **21 GB**, officially supports one Spark | No controlled Spark decode result found | OCR, GUI agents, ASR with timestamps, meeting/video analysis; 256K | **Best audio/document specialist** |
+| [Gemma-4-12B-it NVFP4A16](https://huggingface.co/coolthor/gemma-4-12B-it-NVFP4A16) | Text, image, audio, video | **7.7 GB** | **24.9 tok/s** | Small omni deployment or maximum memory headroom | **Efficient, lower-capability** |
+
+### VLM recommendation order
+
+1. **Qwen3.6-27B NVFP4 + MTP** for coding agents that must inspect screenshots, diagrams, documents or video. Qwen reports MMMU 82.9, MMMU-Pro 75.8, OCRBench 89.4, VideoMME 87.7 and AndroidWorld 70.3 for the 27B base model. These are vendor evaluations, not Spark runtime benchmarks.
+2. **Gemma-4-26B-A4B NVFP4** when fast image/video understanding matters more than dense-model capability. Its community checkpoint retains all tested modalities, but requires a patched vLLM Gemma-4 loader and Marlin MoE backend.
+3. **Nemotron-3-Nano-Omni NVFP4** when audio is a first-class input. It supports image/video/audio/text, one-hour audio, word timestamps, OCR, GUI workflows, tool calling and an official DGX Spark vLLM recipe. It is English-only.
+4. **Gemma-4-31B NVFP4** when you specifically want Google's dense flagship and can accept much slower decode.
+5. **Gemma-4-12B NVFP4A16** for a lightweight omni service. Use weight-only W4A16: the checkpoint author found W4A4 broke multimodal output. vLLM currently exposes text/image; audio/video were validated through Transformers but await full vLLM wrapper support.
+
+Do not use text-only throughput as a complete VLM benchmark. Record image preprocessing/encoder latency, visual token count, TTFT, output tok/s and task accuracy separately. Video comparisons must use the same FPS and frame cap.
+
+### Minimal serving recipes
+
+Use a current Spark-compatible vLLM container. Start with short context while validating multimodal correctness; expand only after measuring memory.
+
+```bash
+# Qwen3.6-27B: keep vision enabled (do not add --language-model-only)
+vllm serve nvidia/Qwen3.6-27B-NVFP4 \
+  --quantization modelopt --tensor-parallel-size 1 --max-model-len 32768 \
+  --reasoning-parser qwen3 --trust-remote-code
+
+# Gemma-4-31B dense
+vllm serve nvidia/Gemma-4-31B-IT-NVFP4 \
+  --quantization modelopt --tensor-parallel-size 1 --max-model-len 32768
+
+# Gemma-4-26B-A4B community NVFP4; use its included loader patch
+VLLM_NVFP4_GEMM_BACKEND=marlin vllm serve /models/Gemma-4-26B-A4B-it-NVFP4 \
+  --quantization modelopt --moe-backend marlin --kv-cache-dtype fp8 \
+  --max-model-len 32768 --trust-remote-code
+
+# NVIDIA omni specialist; install vllm[audio] in the container for audio
+vllm serve nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4 \
+  --max-model-len 32768 --trust-remote-code --kv-cache-dtype fp8 \
+  --reasoning-parser nemotron_v3 --allowed-local-media-path /
+
+# Small Gemma omni; vLLM text/image path
+VLLM_ATTENTION_BACKEND=TRITON_ATTN vllm serve coolthor/gemma-4-12B-it-NVFP4A16 \
+  --max-model-len 32768
+```
+
+Checkpoint cards pin additional version and container requirements; use those exact versions rather than assuming the host vLLM is compatible.
 
 ## Recommended configurations
 
