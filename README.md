@@ -11,6 +11,24 @@ Built from real llama.cpp/ik_llama.cpp work on dense, MoE, hybrid-attention/SSM,
 3. Apply only the section matching the measured bottleneck.
 4. Change one variable at a time; use paired repeats.
 
+## Install the Hermes skills
+
+Install one or all directly from this repository:
+
+```bash
+hermes skills install https://raw.githubusercontent.com/riceharvest/llm-inference-field-guide/main/skills/inference-bottleneck-diagnostics/SKILL.md
+hermes skills install https://raw.githubusercontent.com/riceharvest/llm-inference-field-guide/main/skills/llama-cpp-serving-operator/SKILL.md
+hermes skills install https://raw.githubusercontent.com/riceharvest/llm-inference-field-guide/main/skills/hermes-local-llm-integration/SKILL.md
+```
+
+Then start a fresh session and load the relevant skill with `/skill <name>` or preload it with `hermes -s <name>`. Inspect before installation with `hermes skills inspect <URL>`.
+
+## Included Hermes skills
+
+- **inference-bottleneck-diagnostics** — measurement-first root-cause isolation.
+- **llama-cpp-serving-operator** — GGUF server bring-up, fitting, MTP, and production gates.
+- **hermes-local-llm-integration** — structured tool calls, context, real Hermes workflow tests, and fallback design.
+
 ## Guides
 
 - [Bottleneck decision tree](docs/bottleneck-decision-tree.md)
