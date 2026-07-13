@@ -1,0 +1,7 @@
+*.log
+*.json
+*.txt
+.env
+.venv/
+__pycache__/
+*.db
