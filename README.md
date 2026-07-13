@@ -35,6 +35,7 @@ Then start a fresh session and load the relevant skill with `/skill <name>` or p
 - [Optimization levers by bottleneck](docs/optimization-levers.md)
 - [Benchmark protocol](docs/benchmark-protocol.md)
 - [DGX Spark: Qwen3.6-27B NVFP4 + MTP](docs/dgx-spark-qwen36-27b.md)
+- [DGX Spark model selection: fit, speed, configs, and community signals](docs/dgx-spark-model-selection.md)
 - [`llama.cpp` command cookbook](docs/llama-cpp-cookbook.md)
 - [`collect-system.sh`](tools/collect-system.sh): captures hardware, processes, clocks, build, and model metadata without secrets
 
