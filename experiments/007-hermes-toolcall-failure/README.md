@@ -1,6 +1,6 @@
-# 007 — Model Works Standalone, Fails Through the Agent
+# 007 — KV Cache Corruption That Looked Like an Agent Failure
 
-> Qwen3.6-27B returned clean responses in direct API calls, but failed through the agent layer. The model emitted thinking-only output, then empty assistant messages, then stopped. Root cause: a combination of reasoning-only output handling and a KV config that corrupted long generations.
+> Qwen3.6-27B returned clean responses in direct API calls, but produced garbage through the agent layer. The agent was not the bug. The turbo4 KV cache quant corrupted long generations. Short replies survived. Long agent outputs decayed into thinking-only output, empty messages, and zero tool calls.
 
 **Hardware:** Tesla V100 32GB
 **Model:** Qwen3.6-27B-Heretic-v2-Q4_K_M
@@ -11,7 +11,7 @@
 
 ## Quick Start
 
-If your model works standalone but fails through the agent layer:
+If short API tests pass but long agent runs produce garbage or empty messages:
 
 ```bash
 # Start with this config (known-working):
@@ -26,9 +26,9 @@ llama-server \
 ```
 
 **Key flags:**
-- `--reasoning off` — prevents thinking-only output that the agent can't handle
-- `-ctk q8_0 -ctv q8_0` — KV quant, avoiding the config that corrupts long generations
-- `--parallel 1` — single slot, avoiding cache issues
+- `-ctk q8_0 -ctv q8_0` — replaces turbo4 KV quant, which corrupts long generations
+- `--reasoning off` — prevents thinking-only output that the agent cannot parse into tool calls
+- `--parallel 1` — single slot, keeps the cache state simple while you debug
 
 ## Exact flags
 
@@ -62,6 +62,8 @@ tool_turns=0
 
 **UI showed:** `"fying the two calls: 32-32assistant "` followed by `"[response interrupted]"`
 
+Note the fragment. `"fying the two calls"` is the middle of a word. A chat template bug does not produce mid-word fragments. Corrupted cache state does.
+
 ## The diagnosis path
 
 ### 1. GGUF integrity — ruled out
@@ -76,13 +78,15 @@ The embedded model template was active. A custom community JSON template was tes
 
 The SSE proxy was using 128-byte reads. This was not the cause.
 
-### 4. Reasoning-only output — partial cause
+### 4. Reasoning-only output — contributing cause
 
-The model emitted thinking-only output that the agent couldn't parse into tool calls. The agent tried to repair an empty assistant message, then the model stopped.
+The server ran with `--reasoning on --reasoning-budget 256`. The model spent its small budget on thinking tokens. The visible assistant message came out empty. The agent tried to repair the empty message, then the model stopped. This explains the thinking-only calls. It does not explain the mid-word garbage.
 
-### 5. KV config — the real culprit
+### 5. Turbo4 KV quant — the root cause
 
-The server was running with a KV config that corrupted long generations. This caused the model to produce malformed output that the agent couldn't handle.
+The server ran with `-ctk turbo4 -ctv turbo4`. Turbo4 is an aggressive KV cache quant. Quantization error accumulates in the cache as the sequence grows. Short generations read a short, low-error cache and stay clean. Long agent generations attend over thousands of tokens of degraded cache. The output decays mid-stream: coherent at the start, fragments at the end.
+
+This is why direct API calls passed. They were short. The agent's multi-turn continuations were long. The agent layer was the trigger, not the cause.
 
 ## The fix
 
@@ -108,41 +112,43 @@ The server was running with a KV config that corrupted long generations. This ca
 
 ## Troubleshooting
 
-### Model works standalone but fails through the agent
+### Output starts clean, then decays into fragments
 
-**Symptom:** Direct API calls return correct responses. Through the agent, tool calls fail before the first execution.
+**Symptom:** Long generations begin coherently, then break into mid-word fragments or empty messages.
 
-**Cause:** Combination of reasoning-only output and KV corruption on long generations.
+**Cause:** Aggressive KV cache quant. Error accumulates in the cache as the sequence grows.
 
-**Fix:** Try `--reasoning off` first. If that doesn't help, check your KV config.
+**Fix:** Switch to `-ctk q8_0 -ctv q8_0` or bf16. Retest with a long generation, not a short one.
 
 ### Thinking-only output with no tool calls
 
 **Symptom:** The model emits thinking tokens but never produces a tool call.
 
-**Cause:** The reasoning budget is too small, or the agent can't parse the thinking output into structured tool calls.
+**Cause:** The reasoning budget is too small, or the agent cannot parse the thinking output into structured tool calls.
 
 **Fix:** Either increase `--reasoning-budget` significantly or disable reasoning entirely with `--reasoning off`.
 
-### Empty assistant messages
+### Model works standalone but fails through the agent
 
-**Symptom:** Agent logs "repaired an empty assistant message" then the model stops.
+**Symptom:** Direct API calls return correct responses. Through the agent, output is empty or garbage.
 
-**Cause:** The model produced output that the agent couldn't parse into a valid assistant message. This is often caused by KV corruption on long generations.
+**Cause:** Usually not the agent. Agent prompts and continuations are longer than manual tests. Length-dependent failures, like KV quant corruption, only appear on the long path.
 
-**Fix:** Switch from the problematic KV config to q8_0 or bf16. Verify with a known-good config.
+**Fix:** Reproduce with a long direct generation first. If that also decays, check the KV config before you touch the agent.
 
 ---
 
 ## What transfers
 
-1. **A model that works standalone can still fail through the agent layer.** The agent adds parsing requirements that expose edge cases in model output.
+1. **Aggressive KV quants can pass short tests and fail long generations.** Quantization error accumulates with sequence length. A 20-token smoke test proves nothing about a 2,000-token agent run.
 
-2. **Reasoning-only output breaks tool-calling flows.** If the model only emits thinking tokens, the agent can't extract tool calls. Either disable reasoning or give it a large enough budget.
+2. **Length-dependent failures look like agent or parser bugs.** The long path breaks first. Whatever sits on the long path gets the blame. Check cache and sampling config before you debug the caller.
 
-3. **Some KV configs corrupt long generations.** Use q8_0 or bf16 instead for production workloads.
+3. **Mid-word garbage fragments point at corrupted state, not templates.** A template bug produces wrong structure. A corrupted cache produces broken tokens like `"fying the two calls"`.
 
-4. **Test through the full pipeline, not just direct API calls.** Direct calls can succeed while the agent layer fails.
+4. **Reasoning with a small budget produces empty visible messages.** The model spends the budget on thinking tokens. The agent sees an empty assistant message and cannot recover a tool call from it.
+
+5. **Test at production length.** Direct calls can succeed while the agent layer fails, because the agent layer generates longer.
 
 ---
 
@@ -151,7 +157,5 @@ The server was running with a KV config that corrupted long generations. This ca
 | Path | Purpose |
 |---|---|
 | [`scripts/smoke-toolcall.sh`](scripts/smoke-toolcall.sh) | ~30s agent tool-call smoke test |
-| [`scripts/test-hermes-toolcall.sh`](scripts/test-hermes-toolcall.sh) | Reproduce the agent tool-calling failure |
 | [`patches/fix-toolcall-config.sh`](patches/fix-toolcall-config.sh) | Hotfix patch for toolcall config |
-| [`results/2026-08-10-hermes-toolcall-fix.md`](results/2026-08-10-hermes-toolcall-fix.md) | Full diagnosis path + test results |
 | [`results/2026-08-09-toolcall-kv-fix.json`](results/2026-08-09-toolcall-kv-fix.json) | raw benchmark matrix |

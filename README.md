@@ -14,7 +14,7 @@ This is a collection of standalone experiments. Each entry is one model + one ha
 | 004 | [Serverless Worker Drift](experiments/004-vast-serverless-update-loop/) | Endpoint stuck updating after template changes | Serverless config updates are destructive, not rolling — delete and recreate |
 | 005 | [The 5060 Ti Prefill Reality Check](experiments/005-5060ti-prefill-reality/) | 3–5× slower than community estimates | Optimistic estimates assume optimizations you're not running; measure your own stack |
 | 006 | [sglang Production Gotchas](experiments/006-sglang-production-gotchas/) | Default sglang flags hurt production | Default flags are not production flags — here's what each one does |
-| 007 | [Model Works Standalone, Fails Through the Agent](experiments/007-hermes-toolcall-failure/) | Clean API responses, empty agent responses | Reasoning-only output plus KV config interaction breaks tool-calling flows |
+| 007 | [KV Cache Corruption That Looked Like an Agent Failure](experiments/007-hermes-toolcall-failure/) | Clean short API replies, garbage long agent outputs | Aggressive KV quant passes short tests and corrupts long generations |
 
 ## How to use this
 
