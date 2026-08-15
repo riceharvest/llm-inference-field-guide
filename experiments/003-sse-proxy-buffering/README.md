@@ -23,6 +23,24 @@ CHUNK = 128
 
 **Full proxy config:** [`configs/perkey_proxy.py`](configs/perkey_proxy.py) — the patched version with `CHUNK = 128`.
 
+## Exact flags
+
+Proxy/server setup for real-time streaming:
+
+```bash
+export UPSTREAM="http://127.0.0.1:8080"
+export LISTEN_PORT="8081"
+export CHUNK="128"
+
+python3 configs/perkey_proxy.py
+
+llama-server \
+  -m "${MODEL_PATH:-./Qwen3.6-27B-Q4_K_M.gguf}" \
+  --jinja --temp 0.7 -c 32768 \
+  --parallel 2 -t 14 -tb 16 \
+  -ngl 999 --device CUDA0
+```
+
 ---
 
 ## The symptom
@@ -117,3 +135,6 @@ Tokens now stream as they're produced. The friend sees reasoning incrementally.
 |---|---|
 | [`configs/perkey_proxy.py`](configs/perkey_proxy.py) | Patched SSE proxy with `CHUNK = 128` |
 | [`scripts/test-streaming.sh`](scripts/test-streaming.sh) | Test streaming behavior with direct curl vs proxied |
+| [`scripts/smoke-sse-proxy.sh`](scripts/smoke-sse-proxy.sh) | ~30s proxy smoke test |
+| [`results/2026-08-09-sse-proxy-buffer-fix.json`](results/2026-08-09-sse-proxy-buffer-fix.json) | raw benchmark matrix |
+| [`results/2026-08-09-sse-proxy-buffer-fix.md`](results/2026-08-09-sse-proxy-buffer-fix.md) | human-readable benchmark report |

@@ -31,6 +31,37 @@ curl -L -C - -o model.gguf --retry 5 --retry-delay 5 \
 
 **Full verifier:** [`scripts/verify-checksum.sh`](scripts/verify-checksum.sh)
 
+## Exact flags
+
+Tested configurations during diagnosis:
+
+```bash
+# Failed runs with corrupt GGUF
+llama-server -m model.gguf --jinja --temp 0.0 -c 32768 --parallel 1
+llama-server -m model.gguf --jinja --temp 0.7 -c 32768 --parallel 2
+llama-server -m model.gguf --no-jinja --temp 0.0 -c 32768 --parallel 1
+```
+
+Final working run after re-download:
+
+```bash
+llama-server \
+  -m "${MODEL_PATH:-./Qwen3.6-35B-A3B-Q4_K_P-verified.gguf}" \
+  --jinja --temp 0.7 -c 32768 \
+  --parallel 2 -t 14 -tb 16 \
+  -ngl 999 --device CUDA0
+```
+
+---
+
+## The fix
+
+1. Verify the GGUF SHA256 against the publisher's LFS oid before changing any flags.
+2. If the hash mismatches, re-download with curl or `huggingface-cli` instead of trusting aria2 resume.
+3. Once integrity passes, use the serving flags in `## Exact flags`.
+
+**Why this order matters:** The header/tokenizer can load cleanly while the weight region is corrupt. That failure mode looks exactly like an architecture or quant bug.
+
 ---
 
 ## The symptom

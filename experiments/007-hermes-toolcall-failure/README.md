@@ -30,6 +30,19 @@ llama-server \
 - `-ctk q8_0 -ctv q8_0` — KV quant, avoiding the config that corrupts long generations
 - `--parallel 1` — single slot, avoiding cache issues
 
+## Exact flags
+
+```bash
+llama-server \
+  -m "${MODEL_PATH:-Qwen3.6-27B-uncensored-heretic-v2-Q4_K_M.gguf}" \
+  --port "${PORT:-8080}" --host "${HOST:-127.0.0.1}" \
+  -c 131072 -ngl 99 --jinja \
+  --reasoning off \
+  -ctk q8_0 -ctv q8_0 \
+  --parallel 1 \
+  --temp 0.6 --top-p 0.95 --top-k 20
+```
+
 ---
 
 ## The symptom
@@ -137,5 +150,8 @@ The server was running with a KV config that corrupted long generations. This ca
 
 | Path | Purpose |
 |---|---|
-| [`results/2026-08-10-hermes-toolcall-fix.md`](results/2026-08-10-hermes-toolcall-fix.md) | Full diagnosis path + test results |
+| [`scripts/smoke-toolcall.sh`](scripts/smoke-toolcall.sh) | ~30s agent tool-call smoke test |
 | [`scripts/test-hermes-toolcall.sh`](scripts/test-hermes-toolcall.sh) | Reproduce the agent tool-calling failure |
+| [`patches/fix-toolcall-config.sh`](patches/fix-toolcall-config.sh) | Hotfix patch for toolcall config |
+| [`results/2026-08-10-hermes-toolcall-fix.md`](results/2026-08-10-hermes-toolcall-fix.md) | Full diagnosis path + test results |
+| [`results/2026-08-09-toolcall-kv-fix.json`](results/2026-08-09-toolcall-kv-fix.json) | raw benchmark matrix |

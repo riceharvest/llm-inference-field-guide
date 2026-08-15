@@ -21,20 +21,25 @@ To avoid this entirely:
    ```
 4. **If your worker is the wrong GPU or stuck in `update_rebooting`, delete the worker group and recreate it.** Don't try to patch it back to health.
 
+## Exact flags
+
+```bash
+# Verify worker state and GPU match
+vastai show instances --raw | jq '.[] | {id, gpu_name, num_gpus, actual_status}'
+
+# Recreate endpoint with final config
+vastai update endpoint <your-endpoint-id> \
+  --min_load 0 --max_workers 1 \
+  --cold_workers 1 --cold_mult 1 \
+  --target_util 0.9 \
+  --inactivity_timeout 300
+```
+
 ---
 
 ## The symptom
 
 After several template tweaks, the endpoint entered "update_rebooting" and never came out. Worker kept recycling. Configs kept resetting to defaults.
-
-## What happened
-
-1. Updated the template to fix the model config
-2. The worker rebooted to pick up the new template
-3. Another update reset the GPU search filters to generic defaults
-4. The new worker spawned with the wrong GPU
-5. Fixed the filters → another reboot → another reset
-6. Infinite loop: worker config and platform config were permanently out of sync
 
 ## The fix
 
@@ -45,7 +50,7 @@ Delete the worker group entirely and recreate it once with:
 
 Accept the worker destruction — a clean slate beats incremental updates.
 
-Update the endpoint with conservative autoscaling parameters once the new worker is healthy.
+Then update the endpoint with conservative autoscaling parameters once the new worker is healthy:
 
 ```bash
 vastai update endpoint <your-endpoint-id> \
@@ -88,11 +93,8 @@ vastai update endpoint <your-endpoint-id> \
 ## What transfers
 
 1. **On serverless GPU platforms, config updates are destructive, not rolling.** Don't patch — recreate.
-
 2. **If config drifts, you get infinite recycle loops.** The worker keeps rebooting, but each update resets something else.
-
 3. **Always verify the worker's actual GPU matches your filters after each update.** Don't assume filters survived intact.
-
 4. **A clean worker group beats a half-patched one.** If stuck, destroy it instead of trying to recover it.
 
 ---
@@ -103,3 +105,5 @@ vastai update endpoint <your-endpoint-id> \
 |---|---|
 | [`configs/workergroup-search-params.json`](configs/workergroup-search-params.json) | Example search filters |
 | [`scripts/verify-worker.sh`](scripts/verify-worker.sh) | Verify worker GPU matches your filters |
+| [`scripts/smoke-serverless-worker.sh`](scripts/smoke-serverless-worker.sh) | ~30s worker smoke test |
+| [`results/2026-08-08-worker-drift-fix.json`](results/2026-08-08-worker-drift-fix.json) | raw benchmark matrix |

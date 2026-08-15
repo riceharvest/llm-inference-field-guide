@@ -1,6 +1,6 @@
 # 001 — Ling-3.0-tiny 128K on RTX 3060
 
-> Run Ling-3.0-tiny at 128K context fully on an RTX 3060 12GB. Includes llama-server config, systemd unit, memory budget breakdown, and benchmark numbers.
+> Run Ling-3.0-tiny at 128K context fully on an RTX 3060 12GB. Measured decode speed: ~126–133 tok/s. Includes llama-server config, systemd unit, memory budget breakdown, and benchmark numbers.
 
 **Hardware:** RTX 3060 12GB
 **Model:** `Ling-3.0-tiny-Q4_K_M.gguf` (7.9B total / 1.3B active, `bailingmoe3` arch)
@@ -43,6 +43,27 @@
    ```
 
 **Full systemd unit:** [`configs/ling-llama.service`](configs/ling-llama.service) — auto-starts on boot, restarts on failure, 20G memory cap.
+
+## Exact flags
+
+```bash
+${SERVER_PATH:-./build/bin/llama-server} \
+  -m "${MODEL_PATH:-./Ling-3.0-tiny-Q4_K_M-128K.gguf}" \
+  --host "${HOST:-0.0.0.0}" --port "${PORT:-12445}" \
+  -c 131072 -n 16384 -b 2048 -ub 512 \
+  -ngl 999 --device CUDA0 -fa auto \
+  -ctk bf16 -ctv bf16 \
+  --load-mode mmap+mlock \
+  --parallel 2 --poll 50 --poll-batch 1 \
+  --prio 2 --prio-batch 2 -t 14 -tb 16 \
+  --temp 1.0 --top-p 0.95 --top-k 20
+```
+
+## What transfers
+
+- Memory-cap + systemd unit pattern works for any local llama.cpp service.
+- `--parallel 2` baseline with `-c 131072` on a 12GB card is the starting point for similar MoE/128K setups.
+- Smoke script pattern works for any OpenAI-compatible local server.
 
 ---
 
@@ -117,7 +138,9 @@ Embedded GGUF metadata caps context at 32K despite `-c 131072`. Server loads, he
 
 | Path | Purpose |
 |---|---|
-| [`configs/ling-llama.service`](configs/ling-llama.service) | systemd user service (auto-start, restart, 20G cap) |
-| [`configs/convert-128k.sh`](configs/convert-128k.sh) | Regenerate GGUF with 128K context metadata |
-| [`results/2026-08-15-ling3t-128k-bench.md`](results/2026-08-15-ling3t-128k-bench.md) | Full benchmark data (15 prompts × 3 KV quants) |
-| [`scripts/bench.py`](scripts/bench.py) | Benchmark harness — spins up server, sends prompts, captures VRAM + output |
+| [`configs/ling-llama.service`](configs/ling-llama.service) | systemd user service template |
+| [`configs/convert-128k.sh`](configs/convert-128k.sh) | rebuild GGUF with 128K context metadata |
+| [`scripts/smoke-ling3t-128k.sh`](scripts/smoke-ling3t-128k.sh) | ~30s local smoke test |
+| [`scripts/bench.py`](scripts/bench.py) | benchmark matrix + VRAM capture |
+| [`results/2026-08-15-ling3t-128k-bench.json`](results/2026-08-15-ling3t-128k-bench.json) | raw benchmark matrix |
+| [`results/2026-08-15-ling3t-128k-bench.md`](results/2026-08-15-ling3t-128k-bench.md) | human-readable benchmark report |

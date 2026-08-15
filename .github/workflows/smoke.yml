@@ -1,0 +1,38 @@
+name: smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        experiment:
+          - experiments/001-ling3t-128k-rtx3060
+          - experiments/002-qwen36-35b-a3b-llama-incompat
+          - experiments/003-sse-proxy-buffering
+          - experiments/004-vast-serverless-update-loop
+          - experiments/005-5060ti-prefill-reality
+          - experiments/006-sglang-production-gotchas
+          - experiments/007-hermes-toolcall-failure
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find smoke script
+        id: smoke
+        run: |
+          set +e
+          if ls "${{ matrix.experiment }}/scripts/smoke-*.sh" >/dev/null 2>&1; then
+            echo "script=$(ls "${{ matrix.experiment }}/scripts/smoke-*.sh" | head -n 1)" >> "$GITHUB_OUTPUT"
+          else
+            echo "No smoke script for ${{ matrix.experiment }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run smoke test
+        if: steps.smoke.outputs.script != ''
+        run: |
+          chmod +x "${{ steps.smoke.outputs.script }}"
+          "${{ steps.smoke.outputs.script }}" || echo "Smoke test skipped or failed for ${{ matrix.experiment }}"

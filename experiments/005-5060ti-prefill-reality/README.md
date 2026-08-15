@@ -14,7 +14,10 @@
 Before trusting community benchmarks for your hardware, measure your own stack:
 
 ```bash
-# Run a prefill sweep at multiple prompt lengths
+# Start the benchmark server
+bash configs/serve-5060ti-prefill.sh
+
+# Then run a prefill sweep at multiple prompt lengths
 for ctx in 8192 32768 65536 120000; do
   python3 -c "
 import requests, time
@@ -32,6 +35,21 @@ done
 ```
 
 **Full sweep script:** [`scripts/prefill-sweep.py`](scripts/prefill-sweep.py)
+**Serving config:** [`configs/serve-5060ti-prefill.sh`](configs/serve-5060ti-prefill.sh)
+
+## Exact flags
+
+```bash
+# Example vLLM serving command
+python -m vllm.entrypoints.openai.api_server \
+  --model Qwen3.6-27B-NVFP4 \
+  --port 18000 \
+  --tensor-parallel-size 2 \
+  --max-model-len 120000 \
+  --gpu-memory-utilization 0.90 \
+  --enable-chunked-prefill \
+  --max-num-seqs 4
+```
 
 ---
 
@@ -108,5 +126,7 @@ Each of those "reasonable" constraints stacked multiplicatively. The gap wasn't 
 
 | Path | Purpose |
 |---|---|
-| [`results/2026-08-08-5060ti-prefill-measured.md`](results/2026-08-08-5060ti-prefill-measured.md) | Full sweep data (4 context lengths × 3 repeats) |
+| [`scripts/smoke-5060ti-prefill.sh`](scripts/smoke-5060ti-prefill.sh) | ~30s prefill smoke test |
 | [`scripts/prefill-sweep.py`](scripts/prefill-sweep.py) | Automated prefill benchmark script |
+| [`results/2026-08-08-5060ti-prefill-measured.json`](results/2026-08-08-5060ti-prefill-measured.json) | raw benchmark matrix |
+| [`results/2026-08-08-5060ti-prefill-measured.md`](results/2026-08-08-5060ti-prefill-measured.md) | Full sweep data (4 context lengths × 3 repeats) |

@@ -38,6 +38,21 @@ sglang serve \
 SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=True
 ```
 
+## Exact flags
+
+```bash
+# Production flags for Ampere / RTX 3060
+sglang serve \
+  --model-path ${MODEL_PATH:-inclusionAI/Ling-3.0-tiny-int4} \
+  --max-running-requests 4 \
+  --mem-fraction-static 0.90 \
+  --cuda-graph-backend-prefill enabled \
+  --moe-runner-backend auto \
+  --kv-cache-dtype bfloat16 \
+  --reasoning-parser deepseek-r1 \
+  --tool-call-parser glm
+```
+
 ---
 
 ## The symptom
@@ -146,5 +161,8 @@ Model on sglang was getting ~17.5 tok/s. The same model on llama.cpp gets ~126â€
 
 | Path | Purpose |
 |---|---|
-| [`results/2026-08-15-sglang-production-fix.md`](results/2026-08-15-sglang-production-fix.md) | Full flag-by-flag comparison |
+| [`scripts/smoke-sglang.sh`](scripts/smoke-sglang.sh) | ~30s sglang smoke test |
 | [`scripts/bench-sglang.sh`](scripts/bench-sglang.sh) | Benchmark sglang with different flag combinations |
+| [`patches/sglang-production-flags.sh`](patches/sglang-production-flags.sh) | Hotfix patch for production flags |
+| [`results/2026-08-15-sglang-production-fix.md`](results/2026-08-15-sglang-production-fix.md) | Full flag-by-flag comparison |
+| [`results/2026-08-09-sglang-flags-audit.json`](results/2026-08-09-sglang-flags-audit.json) | raw benchmark matrix |
