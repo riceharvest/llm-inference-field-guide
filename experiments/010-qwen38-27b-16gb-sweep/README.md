@@ -1,9 +1,9 @@
-# 010 — Qwen3.8-27B on 16 GB VRAM: Quant × KV-Q4/Q8 Sweep for Hermes Agents
+# 010 — Qwen3.8-27B-UD-Q2_K_XL on 16 GB VRAM for Hermes Agents
 
-> A 27 B dense hybrid (48 Gated DeltaNet + 16 Gated Attention layers) does not fit a 16 GB card at 4-bit with usable context. The question is which sub-4-bit quant + KV-cache dtype gives the best **agent** result, and whether **KV q4 (half the cache) is good enough** versus q8. This experiment sweeps every quant that fits 16 GB and measures real-prompt decode/prefill and HermesBench tool-use completion, so anyone with a 16 GB card can launch the same optimal config.
+> A 27 B dense hybrid (48 Gated DeltaNet + 16 Gated Attention layers) does not fit a 16 GB card at 4-bit with usable context. The quant dario specified — **`unsloth/Qwen3.8-27B-UD-Q2_K_XL`** (10.7 GB weights) — is the smallest viable option: it leaves ~3.5 GB for the hybrid recurrent/KV state, enough for a large agent context. This experiment measures that one quant: real-prompt **decode/prefill tok/s**, achievable **context length**, and **HermesBench tool-use completion** on a 16 GB card, so anyone with that card can launch the same config.
 
 **Hardware:** RTX 5060 Ti 16 GB (Blackwell, sm_120) on Vast
-**Model:** unsloth/Qwen3.8-27B-GGUF — 2-bit & 3-bit Unsloth Dynamic (UD) quants + standard Q3_K_S / Q3_K_M
+**Model:** unsloth/Qwen3.8-27B-UD-Q2_K_XL (2-bit Unsloth Dynamic)
 **Engine:** llama.cpp (CUDA + Flash Attention, sm_120), HermesBench `hermes-core`
 **Date:** 2026-08 (pending Vast run)
 
@@ -11,23 +11,28 @@
 
 ## Quick Start
 
-For a 16 GB card and Hermes agent use, the empirical winner of this sweep is recorded in **Measured Results**. To reproduce:
+For a 16 GB card and Hermes agent use, the subject config is `UD-Q2_K_XL` at the max context that fits. To reproduce the measurement:
 
 ```bash
-# 1. On the Vast box: build, download, verify
+# 1. On the Vast box: build, download + verify the one quant, arch-probe
 bash configs/vast-build.sh
-MODE=perf bash scripts/sweep.sh          # decode/prefill at real prompts
+bash scripts/download-verify.sh          # UD-Q2_K_XL only, SHA256-verified
+
+# 2. Measure real-prompt decode/prefill + record peak VRAM
+MODE=perf bash scripts/sweep.sh
+
+# 3. Wire into Hermes + run the agent eval
 hermes config set providers.qwen38-local.api http://127.0.0.1:1235/v1
 hermes config set providers.qwen38-local.context_length 32768
-MODE=agent bash scripts/sweep.sh         # hermesbench hermes-core per cell
+MODE=agent bash scripts/sweep.sh         # hermesbench hermes-core
 ```
 
-The budget calculator tells you what fits before you download anything:
+The budget calculator shows the fit before you download anything:
 
 ```bash
 python3 scripts/budget.py
-# -> UD-IQ2_XXS: ~19K ctx @ native KV (UD ignores -ctk/-ctv)
-# -> Q3_K_S:     q4_0 ~13K vs q8_0 ~6K  (the q4-vs-q8 comparison)
+# -> weights 10.68 GB, ~3.5 GB free for state
+# -> est max ctx ~13312 (q8_0-state estimate), launch ctx 12288
 ```
 
 ---
@@ -41,8 +46,10 @@ llama-server \
   -m "${MODEL_PATH}" \
   --host 127.0.0.1 --port "${PORT}" \
   -c "${CTX}" -ngl 999 -fa on \
-  --jinja -np 1 --no-warmup \
-  -ctk "${CTK:-q8_0}" -ctv "${CTV:-q8_0}"   # standard quants only; UD ignores these
+  --jinja -np 1 --no-warmup
+  # NOTE: no -ctk/-ctv — UD-Q2_K_XL embeds its own KV/state format and
+  # rejects those flags (experiment 009 lesson). -fa on is required for
+  # the UD V-cache quantization.
 ```
 
 Hermes provider wiring (`configs/hermes-provider.yaml`):
@@ -60,52 +67,39 @@ providers:
 
 ## The symptom / the question
 
-A 27 B model at 4-bit is ≥15.7 GB. On a 16 GB card that leaves <0.5 GB for the KV cache — no usable context. Sub-4-bit is mandatory. But sub-4-bit on a 27 B model risks exactly the failure seen in experiment 009 (Gemma 4 non-QAT: valid tool calls, zero task completion). Two open questions drive this sweep:
-
-1. **Which sub-4-bit quant survives agent use?** IQ2_XXS is 9 GB but may be too lossy; 3-bit UD may be the quality floor.
-2. **Is KV q4 good enough, or do we need q8?** Halving the state cache roughly doubles context at the same VRAM. If q4 KV does not degrade agent completion, a 16 GB user gets far more context for free.
+A 27 B model at 4-bit is ≥15.7 GB. On a 16 GB card that leaves <0.5 GB for the hybrid state — no usable context. Sub-4-bit is mandatory. The specific open question: **does the 2-bit `UD-Q2_K_XL` survive agent use** — i.e. does it emit and *complete* HermesBench tasks, or does it collapse into the experiment-009 failure mode (valid tool calls, zero task completion) that hit non-QAT quants?
 
 ---
 
 ## The fix / the method
 
-There is no code "fix" — this is a measurement experiment. The method enforces the field guide's own rules:
+No code "fix" — this is a measurement experiment. The method enforces the field guide's own rules:
 
-- **Verify before you debug** (exp 002): `download-verify.sh` uses `hf_hub_download`, which computes each GGUF's SHA256 and refuses to return it unless it matches the repo's LFS oid. It then arch-probes the smallest quant to confirm llama.cpp can load the `qwen35` hybrid before pulling the rest.
-- **UD rejects `-ctk/-ctv`** (exp 009): the launcher applies KV overrides only to standard K-quants; UD quants run at their embedded native format. This is *why* the q4-vs-q8 comparison lives on Q3_K_S/Q3_K_M, not the UD files.
-- **Real prompts, not synthetic** (exp 005/diagnostics): `perf-probe.py` sends a ~700-token agent system prompt + nested tool schemas and parses `TTFT`, `prefill tok/s`, and `decode tok/s` from streaming usage — mirroring actual Hermes traffic.
+- **Verify before you debug** (exp 002): `download-verify.sh` uses `hf_hub_download`, which computes the GGUF's SHA256 and refuses to return it unless it matches the repo LFS/Xet oid. It then arch-probes the file to confirm llama.cpp can load the `qwen35` hybrid before you trust it.
+- **UD rejects `-ctk/-ctv`** (exp 009): the launcher omits KV overrides for UD quants. UD-Q2_K_XL runs at its embedded native state format.
+- **Real prompts, not synthetic** (exp 005): `perf-probe.py` sends a ~700-token agent system prompt + nested tool schemas and parses `TTFT`, `prefill tok/s`, and `decode tok/s` from streaming usage — mirroring actual Hermes traffic.
 - **Score on completion, not tool emission** (exp 009): agent quality comes from HermesBench `hermes-core` task completion, not whether `tool_calls` is populated.
-- **Each quant at its own max context**: because Q4+ is excluded and even 3-bit is tight, the q4-vs-q8 axis is isolated on the standard Q3_K_S (q4_0 ~13K vs q8_0 ~6K at the default overhead) — same quant, so the KV dtype effect is clean.
+- **Measure at the quant's own max context**: `budget.py --plan` emits the single cell (UD-Q2_K_XL at its max feasible context). The sweep runs exactly that one cell.
 
 ---
 
 ## Measured Results
 
-_Pending the Vast 16 GB run._ The sweep produces, per cell `<quant>-<kv>-<ctx>`:
+_Pending the Vast 16 GB run._ The single cell `Qwen3.8-27B-UD-Q2_K_XL/native/<ctx>` produces:
 
 | Artifact | Meaning |
 |---|---|
 | `perf.json` | real-prompt TTFT, prefill tok/s, decode tok/s (3 repeats) |
-| `vram.csv` | peak VRAM for that cell (recorded, not estimated) |
+| `vram.csv` | peak VRAM for the run (recorded, not estimated) |
 | hermesbench run JSON + score | Hermes-core task completion /13 |
 
-The cells are generated by `scripts/budget.py --plan` (each quant at ITS OWN
-max feasible context — so the KV q4-vs-q8 comparison is isolated on Q3_K_S,
-not confounded by context length). At the default 1.5 GB overhead assumption
-the planned cells are:
+The planned cell (default 1.5 GB overhead assumption):
 
 ```
-Qwen3.8-27B-UD-IQ2_XXS  native  19456
-Qwen3.8-27B-UD-IQ2_M    native  14336
-Qwen3.8-27B-UD-Q2_K_XL  native  13312
-Qwen3.8-27B-UD-IQ3_XXS  native   9216
-Qwen3.8-27B-Q3_K_S      q8_0     6144
-Qwen3.8-27B-Q3_K_S      q4_0    13312    <- the q4-vs-q8 answer lives here
-Qwen3.8-27B-Q3_K_M      q4_0     4096
+Qwen3.8-27B-UD-Q2_K_XL  native  12288
 ```
 
-The dated consolidated matrix will be committed as
-`results/2026-08-<dd>-qwen38-16gb-sweep.json`.
+The dated consolidated result will be committed as `results/2026-08-<dd>-qwen38-udq2xl.json`.
 
 ---
 
@@ -113,33 +107,32 @@ The dated consolidated matrix will be committed as
 
 ### `V cache quantization requires flash_attn`
 **Cause:** UD quant without `-fa on`, or explicit `-ctk/-ctv` clashing with the UD metadata.
-**Fix:** `-fa on` and remove `-ctk/-ctv` (handled automatically by the launcher for UD files).
+**Fix:** `-fa on` and no `-ctk/-ctv` (handled automatically by the launcher for UD files).
 
 ### `unknown model architecture 'qwen35'` / load fails
 **Cause:** llama.cpp build predates qwen35.cpp (the Qwen3.8 arch string).
-**Fix:** bump `LLAMA_COMMIT` and rebuild (`configs/vast-build.sh`). The arch-probe in `download-verify.sh` catches this before you download 70 GB.
+**Fix:** bump `LLAMA_COMMIT` and rebuild (`configs/vast-build.sh`). The arch-probe in `download-verify.sh` catches this before you download.
 
 ### CUDA `no kernel image available` / sm_120 mismatch
 **Cause:** built for the wrong compute capability (5060 Ti is Blackwell sm_120).
 **Fix:** ensure `-DCMAKE_CUDA_ARCHITECTURES="120"` and a CUDA 12.4+ toolkit.
 
 ### OOM at context start
-**Cause:** context allocation exceeds 16 GB for the chosen quant to fit.
-**Fix:** the budget calculator shows the max ctx per cell. Drop to a smaller quant. The sweep auto-skips infeasible cells.
+**Cause:** `--ctx` exceeds what fits for the 10.7 GB weights + ~3.5 GB state budget.
+**Fix:** the budget calculator shows the max ctx. Drop the context, don't change the quant (UD-Q2_K_XL is fixed).
 
 ### Agent scores valid tool calls but completes 0/13
-**Cause:** too-aggressive quant (cf. exp 009).
-**Fix:** move up a quant tier (e.g. UD-IQ2 -> UD-IQ3, or Q3_K_S -> Q3_K_M). Record which tier is the quality floor.
+**Cause:** too-aggressive 2-bit quant.
+**Fix:** record the result — this IS the experiment's hypothesis test. If it fails, the conclusion is "2-bit is below the agent floor for 27 B and you need a bigger card or Q3+."
 
 ---
 
 ## What transfers
 
-1. **Sub-4-bit is mandatory for 27 B on 16 GB.** Q4+ leaves no context. The fit ceiling is the quant size, not the KV cache.
-2. **The hybrid (GDN) state dominates KV cost** — 48 recurrent layers at full embedding width. This is what makes even 64K context thinkable at 2-bit on 16 GB; a pure-attention 27 B would not fit.
-3. **KV q4-vs-q8 is a per-quant decision**, not a universal rule, and on a 16 GB card you cannot hold context equal — compare at each mode's max context. Measured here on Q3_K_S.
-4. **UD quants own their KV format** — never pass `-ctk/-ctv` to them; the q4-vs-q8 comparison must use standard K-quants.
-5. **Agent viability ≠ tool emission.** Score completion (HermesBench), not `tool_calls` presence.
+1. **Sub-4-bit is mandatory for 27 B on 16 GB.** Q4+ leaves no context. Q2_K_XL is the smallest Unsloth Dynamic option and the only one with a large agent context.
+2. **The hybrid (GDN) state dominates KV cost** — 48 recurrent layers at full embedding width. This is what makes even ~12K context thinkable at 2-bit on 16 GB; a pure-attention 27 B would not fit.
+3. **UD quants own their KV format** — never pass `-ctk/-ctv` to them; `-fa on` is the only required cache flag.
+4. **Agent viability ≠ tool emission.** Score completion (HermesBench), not `tool_calls` presence — 2-bit is where that gap bites.
 
 ---
 
@@ -147,10 +140,10 @@ The dated consolidated matrix will be committed as
 
 | Path | Purpose |
 |---|---|
-| [`configs/llama-server-sweep.sh`](configs/llama-server-sweep.sh) | One-cell launcher; honors KV flags only on standard quants |
+| [`configs/llama-server-sweep.sh`](configs/llama-server-sweep.sh) | Single-cell launcher; no KV flags for UD |
 | [`configs/vast-build.sh`](configs/vast-build.sh) | llama.cpp build for sm_120 + Flash Attention |
 | [`configs/hermes-provider.yaml`](configs/hermes-provider.yaml) | Hermes provider snippet |
-| [`scripts/budget.py`](scripts/budget.py) | VRAM/context feasibility + sweep plan |
+| [`scripts/budget.py`](scripts/budget.py) | VRAM/context feasibility for UD-Q2_K_XL |
 | [`scripts/download-verify.sh`](scripts/download-verify.sh) | Download + SHA256 verify (via hf_hub) + arch-probe |
 | [`scripts/sweep.sh`](scripts/sweep.sh) | Perf + agent orchestrator (MODE=perf\|agent) |
 | [`scripts/perf-probe.py`](scripts/perf-probe.py) | Real-prompt decode/prefill measurement |

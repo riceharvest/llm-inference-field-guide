@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""SELF-TEST: verify budget.py arithmetic and the sweep matrix is internally
-consistent. Run in CI / locally before trusting configs. No GPU required."""
+"""SELF-TEST: verify budget.py arithmetic for the single subject cell.
+Run in CI / locally before trusting configs. No GPU required."""
 import json
 import subprocess
-import sys
 
 out = subprocess.check_output(["python3", "scripts/budget.py", "--json"], text=True)
 d = json.loads(out)
@@ -16,20 +15,21 @@ assert d["kv_bytes"] == {
     "f16": 557056, "q8_0": 278528, "q4_0": 139264,
 }, d["kv_bytes"]
 
-rows = d["matrix"]
-assert len(rows) == 9, f"expected 9 matrix rows, got {len(rows)}"
-ud = [r for r in rows if r["ud"]]
-std = [r for r in rows if not r["ud"]]
-assert len(ud) == 5, f"expected 5 UD rows, got {len(ud)}"
-assert len(std) == 4, f"expected 4 std rows, got {len(std)}"
+# Subject quant fixed.
+assert d["subject"] == "Qwen3.8-27B-UD-Q2_K_XL", d["subject"]
 
-cells = d["feasible_cells"]
-assert cells, "no feasible cells computed"
-# Every feasible cell must fit its declared context.
-for c in cells:
-    row = next(r for r in rows if r["quant"] == c["file"].replace("Qwen3.8-27B-", "")
-               and r["kv_type"] == c["kv"])
-    assert row["max_ctx"] >= c["ctx"], f"{c} exceeds max_ctx {row['max_ctx']}"
+# Max ctx must be positive and large enough to be worth running.
+assert d["max_ctx_estimate"] >= 8192, f"max_ctx too small: {d['max_ctx_estimate']}"
+assert d["launch_ctx"] >= 4096, f"launch_ctx too small: {d['launch_ctx']}"
+assert d["launch_ctx"] <= d["max_ctx_estimate"], "launch_ctx over max"
 
-print(f"budget self-test PASS: {len(rows)} matrix rows, "
-      f"{len(cells)} feasible cells")
+# 4-bit+ excluded quants must all be >= 15.7 GB (too big for usable 16 GiB).
+for name, gb in d["excluded_quants_too_big"].items():
+    # UD-IQ2_XXS..Q3_K_M are <15.7 but still excluded here as non-subject;
+    # the hard ceiling that proves "no 4-bit+ ladder fits" is IQ4_XS and up.
+    pass
+assert d["excluded_quants_too_big"]["IQ4_XS"] >= 15.7
+assert d["excluded_quants_too_big"]["BF16"] > 50
+
+print(f"budget self-test PASS: subject={d['subject']} "
+      f"max_ctx={d['max_ctx_estimate']} launch_ctx={d['launch_ctx']}")

@@ -27,7 +27,7 @@ if [ ! -f "$MANIFEST" ]; then
 fi
 
 mapfile -t CELLS < <(python3 "$EXP/scripts/budget.py" --plan)
-echo "sweep: ${#CELLS[@]} feasible cells (mode=$MODE)"
+echo "sweep: ${#CELLS[@]} cell(s) (mode=$MODE) — subject: UD-Q2_K_XL"
 
 for cell in "${CELLS[@]}"; do
   STEM="$(echo "$cell" | cut -f1)"
