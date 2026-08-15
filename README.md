@@ -15,6 +15,7 @@ This is a collection of standalone experiments. Each entry is one model + one ha
 | 005 | [The 5060 Ti Prefill Reality Check](experiments/005-5060ti-prefill-reality/) | 3–5× slower than community estimates | Optimistic estimates assume optimizations you're not running; measure your own stack |
 | 006 | [sglang Production Gotchas](experiments/006-sglang-production-gotchas/) | Default sglang flags hurt production | Default flags are not production flags — here's what each one does |
 | 007 | [KV Cache Corruption That Looked Like an Agent Failure](experiments/007-hermes-toolcall-failure/) | Clean short API replies, garbage long agent outputs | Aggressive KV quant passes short tests and corrupts long generations |
+| 008 | [Speculation Shootout on a 3B-Active MoE](experiments/008-moe-speculation-mtp-vs-dflash/) | DFlash slower than baseline, DDTree crashes on verify | Acceptance rate is not speedup — the verify pass pays for the union of expert weights; jointly-trained MTP is the only win |
 
 ## How to use this
 

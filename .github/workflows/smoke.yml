@@ -20,6 +20,7 @@ jobs:
           - experiments/005-5060ti-prefill-reality
           - experiments/006-sglang-production-gotchas
           - experiments/007-hermes-toolcall-failure
+          - experiments/008-moe-speculation-mtp-vs-dflash
     steps:
       - uses: actions/checkout@v4
       - name: Find smoke script
