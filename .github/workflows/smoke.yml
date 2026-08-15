@@ -21,8 +21,6 @@ jobs:
           - experiments/006-sglang-production-gotchas
           - experiments/007-hermes-toolcall-failure
           - experiments/008-moe-speculation-mtp-vs-dflash
-          - experiments/009-gemma4-qat-tooluse-collapse
-          - experiments/010-qwen38-27b-16gb-sweep
     steps:
       - uses: actions/checkout@v4
       - name: Find smoke script

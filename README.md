@@ -16,8 +16,7 @@ This is a collection of standalone experiments. Each entry is one model + one ha
 | 006 | [sglang Production Gotchas](experiments/006-sglang-production-gotchas/) | Default sglang flags hurt production | Default flags are not production flags — here's what each one does |
 | 007 | [KV Cache Corruption That Looked Like an Agent Failure](experiments/007-hermes-toolcall-failure/) | Clean short API replies, garbage long agent outputs | Aggressive KV quant passes short tests and corrupts long generations |
 | 008 | [Speculation Shootout on a 3B-Active MoE](experiments/008-moe-speculation-mtp-vs-dflash/) | DFlash slower than baseline, DDTree crashes on verify | Acceptance rate is not speedup — the verify pass pays for the union of expert weights; jointly-trained MTP is the only win |
-| 009 | [The 4-Bit Quant That Fired Tools but Finished Nothing](experiments/009-gemma4-qat-tooluse-collapse/) | Non-QAT Gemma 4 passed tool-call probes, completed 0/13 agent tasks | QAT is a capability feature — at the same bit-width, QAT hit 9/13; non-QAT fired tools and finished none; provenance beats size |
-| 010 | [Qwen3.8-27B-UD-Q2_K_XL on 16 GB for Hermes Agents](experiments/010-qwen38-27b-16gb-sweep/) | 27 B won't fit 4-bit on 16 GB; does the 2-bit UD-Q2_K_XL survive agent use? | _pending Vast run_ — harness measures real-prompt decode/prefill + HermesBench on the one specified quant |
+
 
 ## How to use this
 
