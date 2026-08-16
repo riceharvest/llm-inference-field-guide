@@ -1,0 +1,6 @@
+# Keep auto-research-loop result artifacts in git despite the repo-wide *.json ignore.
+# (The root .gitignore excludes *.json to avoid committing bench dumps elsewhere.)
+# Patterns are relative to THIS directory (scripts/auto-research-loop/).
+!results/*.json
+!configs/*.yaml
+!templates/*.json

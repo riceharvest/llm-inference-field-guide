@@ -1,0 +1,16 @@
+[
+  {
+    "name": "B_kvq4_0",
+    "primary_metric": 161.752,
+    "constraint_metric": 7.11,
+    "prefill": 423.832,
+    "ttft": 34.37
+  },
+  {
+    "name": "E_kvq4_par8",
+    "primary_metric": 153.376,
+    "constraint_metric": 6.37,
+    "prefill": 405.377,
+    "ttft": 35.87
+  }
+]

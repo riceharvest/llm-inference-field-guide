@@ -1,0 +1,135 @@
+{
+  "config_name": "B_kvq8_0",
+  "timestamp": "2026-08-16T01:41:26.904975Z",
+  "success": true,
+  "primary_metric": 155.659,
+  "constraint_metric": 7.58,
+  "metrics": {
+    "tokSOut": 155.659,
+    "tokSPrefill": 399.55,
+    "ttftMs": 36.5,
+    "peakVramGb": 7.58,
+    "modelVramGb": null,
+    "kvVramPerSlotGb": null,
+    "gpuPowerWatts": [
+      132.2
+    ],
+    "totalPowerWatts": 132.2,
+    "decodeMin": 150.99,
+    "decodeMax": 159.85
+  },
+  "hardware": {
+    "hwClass": "DISCRETE_GPU",
+    "gpuName": "NVIDIA GeForce RTX 3060",
+    "gpuCount": 1,
+    "vramGb": 12,
+    "cpu": "AMD Ryzen 9 5950X 16-Core Processor",
+    "ramGb": 62,
+    "os": "Fedora Linux 43 (KDE Plasma Desktop Edition)",
+    "powerWatts": 132.2
+  },
+  "engine": {
+    "engineName": "llama.cpp",
+    "engineVersion": "version: 0.1.0-dev (build 10411, commit db4480bc8)",
+    "backend": "cuda",
+    "engineFlags": {
+      "commandSnippet": "~/llama.cpp-aetherbird/build/bin/llama-server -m ~/models/Ling-3.0-tiny-Q4_K_M.gguf --host 127.0.0.1 --port 12499 -c 131072 -n 16384 -b 1024 -ub 512 -ngl 999 --device CUDA0 -fa auto -ctk q8_0 -ctv q8_0 --load-mode mmap+mlock --parallel 4 --poll 50 --poll-batch 1 --prio 2 --prio-batch 2 -t 14 -tb 16 --temp 0.0 --top-p 0.95 --top-k 20",
+      "tensorParallel": 1,
+      "kvCacheDtype": "q8_0",
+      "flashAttn": "auto",
+      "concurrency": 4,
+      "temperature": 0.0
+    }
+  },
+  "model": {
+    "hfId": "ling-3.0-tiny",
+    "modelRevision": "main",
+    "quantization": "Q4_K_M"
+  },
+  "benchmark": {
+    "promptTokens": 120,
+    "outputTokens": 5718,
+    "contextLength": 131072,
+    "batchSize": 4,
+    "prefillTokens": 0
+  },
+  "perPrompt": [
+    {
+      "ttft_ms": 28.1,
+      "tok_s_out": 155.0,
+      "tok_s_prefill": 142.36,
+      "prompt_tokens": 4,
+      "completion_tokens": 629
+    },
+    {
+      "ttft_ms": 26.26,
+      "tok_s_out": 154.87,
+      "tok_s_prefill": 152.32,
+      "prompt_tokens": 4,
+      "completion_tokens": 1024
+    },
+    {
+      "ttft_ms": 38.61,
+      "tok_s_out": 150.99,
+      "tok_s_prefill": 466.2,
+      "prompt_tokens": 18,
+      "completion_tokens": 1024
+    },
+    {
+      "ttft_ms": 40.85,
+      "tok_s_out": 154.18,
+      "tok_s_prefill": 832.25,
+      "prompt_tokens": 34,
+      "completion_tokens": 1024
+    },
+    {
+      "ttft_ms": 40.49,
+      "tok_s_out": 159.24,
+      "tok_s_prefill": 617.41,
+      "prompt_tokens": 25,
+      "completion_tokens": 1024
+    },
+    {
+      "ttft_ms": 44.69,
+      "tok_s_out": 159.85,
+      "tok_s_prefill": 783.21,
+      "prompt_tokens": 35,
+      "completion_tokens": 993
+    }
+  ],
+  "configUsed": {
+    "name": "B_kvq8_0",
+    "model_path": "~/models/Ling-3.0-tiny-Q4_K_M.gguf",
+    "hf_id": "ling-3.0-tiny",
+    "model_revision": "main",
+    "quantization": "Q4_K_M",
+    "server_binary": "~/llama.cpp-aetherbird/build/bin/llama-server",
+    "host": "127.0.0.1",
+    "port": 12499,
+    "context": 131072,
+    "n": 16384,
+    "batch": 1024,
+    "ubatch": 512,
+    "threads": 14,
+    "threads_batch": 16,
+    "ngl": 999,
+    "device": "CUDA0",
+    "flash_attn": "auto",
+    "kv_quant": "q8_0",
+    "load_mode": "mmap+mlock",
+    "parallel": 4,
+    "poll": 50,
+    "poll_batch": 1,
+    "prio": 2,
+    "prio_batch": 2,
+    "temp": 0.0,
+    "top_p": 0.95,
+    "top_k": 20,
+    "prompts_file": "scripts/auto-research-loop/templates/prompts.json",
+    "engine_version": "aetherbird/bailingmoe3-support",
+    "startup_timeout": 120,
+    "warmup_runs": 2,
+    "max_tokens": 1024
+  },
+  "notes": "Auto-research run: B_kvq8_0. Dec geomean over 6 prompts, temp=0, stream timings. Peak VRAM 7.58 GB."
+}

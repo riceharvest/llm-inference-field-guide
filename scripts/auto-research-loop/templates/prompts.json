@@ -1,0 +1,8 @@
+[
+  {"prompt": "Write a concise technical summary of how Flash Attention reduces the quadratic memory cost of self-attention in transformer decoders."},
+  {"prompt": "Explain the trade-off between KV-cache precision (fp16 vs q8_0) and maximum context length on a 12 GB consumer GPU."},
+  {"prompt": "List five failure modes when serving a Mixture-of-Experts model with speculative decoding enabled."},
+  {"prompt": "Describe the memory budget of a 7.9B-parameter MoE model loaded into VRAM at Q4_K_M with a 128K context window."},
+  {"prompt": "Compare mmap+mlock against full GPU offload for model weight loading, focusing on cold-start latency and page-cache pressure."},
+  {"prompt": "A server reports 131 tok/s decode but 40 ms TTFT at 8K prompt. Diagnose the likely bottleneck and propose two concrete fixes."}
+]
